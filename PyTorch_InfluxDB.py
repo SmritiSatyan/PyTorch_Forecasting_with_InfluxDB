@@ -2,28 +2,58 @@
 import os
 import warnings
 
+import numpy as np
+import pandas as pd
+from influxdb_client import InfluxDBClient
+from influxdb_client.client.write_api import SYNCHRONOUS, PointSettings
+
 warnings.filterwarnings("ignore")  # avoid printing absolute paths
 
 import copy
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
 import pytorch_lightning as pl
+import torch
+from pytorch_forecasting import (Baseline, TemporalFusionTransformer,
+                                 TimeSeriesDataSet)
+from pytorch_forecasting.data import GroupNormalizer
+from pytorch_forecasting.data.examples import get_stallion_data
+from pytorch_forecasting.metrics import SMAPE, PoissonLoss, QuantileLoss
+from pytorch_forecasting.models.temporal_fusion_transformer.tuning import \
+    optimize_hyperparameters
 from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
 from pytorch_lightning.loggers import TensorBoardLogger
-import torch
-
-from pytorch_forecasting import Baseline, TemporalFusionTransformer, TimeSeriesDataSet
-from pytorch_forecasting.stallion_df import GroupNormalizer
-from pytorch_forecasting.metrics import SMAPE, PoissonLoss, QuantileLoss
-from pytorch_forecasting.models.temporal_fusion_transformer.tuning import optimize_hyperparameters
-
-
-from pytorch_forecasting.stallion_df.examples import get_stallion_data
 
 # Fetch stallion data and store in a dataframe
 stallion_df = get_stallion_data()
+
+# Replace 'toke', 'org', and 'bucket' with your account specific values
+token = "generated token"
+org = "email"
+bucket = "bucket"
+# The url depends on the location selected during sign up
+url = "https://us-east-1-1.aws.cloud2.influxdata.com"
+    
+with InfluxDBClient(url=url, token=token, org=org) as client:
+    """
+    Ingest DataFrame with default tags
+    """
+    point_settings = PointSettings(**{"type": "stallion_df"})
+    point_settings.add_default_tag("stallion-data", "ingest-data-frame")
+    
+    write_api = client.write_api(write_options=SYNCHRONOUS, point_settings=point_settings)
+    write_api.write(bucket="bucket1", record=data, data_frame_measurement_name="financial-analysis-df")
+
+    """
+    Querying ingested data
+    """
+    query = 'from(bucket:"bucket1")' \
+            ' |> range(start: -2d, stop: now())' \
+            ' |> filter(fn: (r) => r._measurement == "stallion_df")' 
+            
+client = InfluxDBClient(url=url, token=token, org= org, debug=False)
+stallion_df = client.query_api().query_data_frame(org= org, query=query)
 
 # Add time index
 stallion_df["time_idx"] = stallion_df["date"].dt.year * 12 + stallion_df["date"].dt.month
@@ -60,6 +90,8 @@ max_encoder_length = 24
 training_cutoff = stallion_df["time_idx"].max() - max_prediction_length
 
 # Convert the dataframe to a PyTorch forecasting TimeSeriesDataSet format
+# Define the GroupNormalizer to normalize a given entry by groups.
+# For every group, a scaler is fit and applied. It can be used as target normalizer as well as to normalize other variable.
 training = TimeSeriesDataSet(
     stallion_df[lambda x: x.time_idx <= training_cutoff],
     time_idx="time_idx",
@@ -83,10 +115,7 @@ training = TimeSeriesDataSet(
         "avg_max_temp",
         "avg_volume_by_agency",
         "avg_volume_by_sku",
-    ],
-
-# Define the GroupNormalizer to normalize a given entry by groups.
-# For every group, a scaler is fit and applied. It can be used as target normalizer as well as to normalize other variable.
+    ], 
     target_normalizer=GroupNormalizer(
         groups=["agency", "sku"], transformation="softplus"
     ),  # use softplus and normalize by group
