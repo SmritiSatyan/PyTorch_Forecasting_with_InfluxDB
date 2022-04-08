@@ -1,0 +1,6 @@
+pandas
+numpy
+influxdb
+influxdb-client
+torch
+pytorch-forecasting
