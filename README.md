@@ -15,7 +15,7 @@ First, we install ``influxdb`` and ``influxdb-client`` that will help establish 
 Stallion data contains the below datasets:
 * pricesalespromotion.csv: Holds the price, sales & promotion in dollars.
 * historicalvolume.csv: contains sales data.
-* weather.csv: the average maximum temperature at Agency monthly/ 
+* weather.csv: the average maximum temperature at Agency monthly
 * Industrysodasales.csv: Holds industry level soda sales 
 * eventcalendar.csv: Holds event details (sports, carnivals, etc.)
 * industry_volume.csv: industry actual beer volume
