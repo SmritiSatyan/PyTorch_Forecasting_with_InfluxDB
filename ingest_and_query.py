@@ -40,6 +40,6 @@ with InfluxDBClient(url="https://us-east-1-1.aws.cloud2.influxdata.com", token=t
                                 record.get_time()))
                         
 # convert the list to a dataframe                        
-influx_df = pd.DataFrame(results, columns=['_field', '_value', '_measurement', column-names])
+stallion_df = pd.DataFrame(results, columns=['_field', '_value', '_measurement', other-columns])
 
 Note: You can use ``record.values.get("column-name")`` if you wish to fetch other columns from InfluxDB.
