@@ -12,7 +12,6 @@ warnings.filterwarnings("ignore")  # avoid printing absolute paths
 import copy
 from pathlib import Path
 
-import numpy as np
 import pytorch_lightning as pl
 import torch
 from pytorch_forecasting import (Baseline, TemporalFusionTransformer,
@@ -24,25 +23,17 @@ from pytorch_forecasting.models.temporal_fusion_transformer.tuning import \
     optimize_hyperparameters
 from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
 from pytorch_lightning.loggers import TensorBoardLogger
+from pytorch_forecasting.data.examples import get_stallion_data
 
-# Fetch stallion data and store in a dataframe
-stallion_df = get_stallion_data()
-
-# Replace 'toke', 'org', and 'bucket' with your account specific values
+# Replace 'token', 'org', and 'bucket' with your account specific values
 token = "generated token"
 org = "email"
 bucket = "bucket"
 # The url depends on the location selected during sign up
-url = "https://us-east-1-1.aws.cloud2.influxdata.com"
+url = "https://us-east-1-1.aws.cloud2.influxdata.com"    
     
-import pandas as pd
-    
-from influxdb_client import InfluxDBClient
-from influxdb_client.client.write_api import SYNCHRONOUS, PointSettings
-    
-from pytorch_forecasting.data.examples import get_stallion_data
-import numpy as np
-stallion_df = get_stallion_data()
+# Fetch stallion data and store in a dataframe
+stallion_data = get_stallion_data()
 token = "generated token"
 org = "email"
 url = "https://us-east-1-1.aws.cloud2.influxdata.com"
@@ -262,36 +253,6 @@ raw_predictions, x = best_tft.predict(val_dataloader, mode="raw", return_x=True)
 for idx in range(4):  # plot 4 examples
     best_tft.plot_prediction(x, raw_predictions, idx=idx, add_loss_to_title=True);
    
-   
-# # This shows which metric didn't perform well, i.e it determines the values which the model couldn't predict accurately
-#predictions = best_tft.predict(val_dataloader)
-#mean_losses = SMAPE(reduction="none")(predictions, actuals).mean(1)
-#indices = mean_losses.argsort(descending=True)  # sort losses
-#for idx in range(4):  # plot 4 examples
-#    best_tft.plot_prediction(
-#        x, raw_predictions, idx=indices[idx], add_loss_to_title=SMAPE(quantiles=best_tft.loss.quantiles)
-#    );
-   
-
-## Check how the model performs on different sections of data.
-#predictions, x = best_tft.predict(val_dataloader, return_x=True)
-#predictions_vs_actuals = best_tft.calculate_prediction_actual_by_variable(x, predictions)
-#best_tft.plot_prediction_actual_by_variable(predictions_vs_actuals);
-
-## Predict on subset of data by filtering subsequences of data
-#best_tft.predict(
-#    training.filter(lambda x: (x.agency == "Agency_01") & (x.sku == "SKU_01") & (x.time_idx_first_prediction == 15)),
-#    mode="quantiles",
-#)
-
-#raw_prediction, x = best_tft.predict(
-#    training.filter(lambda x: (x.agency == "Agency_01") & (x.sku == "SKU_01") & (x.time_idx_first_prediction == 15)),
-#    mode="raw",
-#    return_x=True,
-#)
-#best_tft.plot_prediction(x, raw_prediction, idx=0);
-
-
 # Select last 24 months from stallion_df (max_encoder_length has been initialized to 24)
 # The presence of covariates requires defining known covariates beforehand
 # Predict on new data
