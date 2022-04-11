@@ -65,7 +65,7 @@ with InfluxDBClient(url="https://us-east-1-1.aws.cloud2.influxdata.com", token=t
             results.append((record.get_field(), 
                                 record.get_value(), 
                                 record.get_measurement(), 
-                                record.get_time())) # Other columns from the data can be fetched using df_name.get("column-name")
+                                record.get_time())) # Other columns from the data can be fetched using list_name.values.get("column-name")
                         
 # convert the list to a dataframe                        
 stallion_df = pd.DataFrame(results, columns=['_field', '_value', '_measurement', other-columns])
