@@ -28,47 +28,66 @@ from pytorch_forecasting.data.examples import get_stallion_data
 # Replace 'token', 'org', and 'bucket' with your account specific values
 token = "generated token"
 org = "email"
-bucket = "bucket"
+bucket = "myBucket"
 # The url depends on the location selected during sign up
 url = "https://us-east-1-1.aws.cloud2.influxdata.com"    
     
-# Fetch stallion data and store in a dataframe
 stallion_data = get_stallion_data()
-token = "generated token"
-org = "email"
-url = "https://us-east-1-1.aws.cloud2.influxdata.com"
-    
-# using line protocol to write data to InfluxDB cloud
-client = InfluxDBClient(url=url, token=token, org=org)
-write_api = client.write_api(write_options=SYNCHRONOUS)
-    
-# line protocol should have the syntax
-'''<measurement>[,<tag_key>=<tag_value>[,<tag_key>=<tag_value>]] <field_key>=<field_value>[,<field_key>=<field_value>] [<timestamp>]''''
-    
-# add the columns required for the prediction
-data = "beverage_sales,volume=59.315,date=2013-01-01,timeseries=166 actual_price=52.212"
-write_api.write(bucket, org, data)
-    
+stallion_data = stallion_data.rename(columns={"date": "time"})
+stallion_data = stallion_data.set_index('time')
+# print(stallion_data)
 
-# Querying ingested data
-results = [] # initialize an empty list to append the records
+"""
+Enable logging for DataFrame serializer
+"""
+loggerSerializer = logging.getLogger('influxdb_client.client.write.dataframe_serializer')
+loggerSerializer.setLevel(level=logging.DEBUG)
+handler = logging.StreamHandler()
+handler.setFormatter(logging.Formatter('%(asctime)s | %(message)s'))
+loggerSerializer.addHandler(handler)
+
+"""
+Ingest DataFrame
+"""
+print()
+print("=== Ingesting DataFrame via batching API ===")
+print()
+startTime = datetime.now()
+
+with InfluxDBClient(url=url, token=token, org=org) as client:
+
+    """
+    Use batching API
+    """
+    with client.write_api() as write_api:
+        write_api.write(bucket='myBucket', record=stallion_data,
+                        data_frame_tag_columns=['agency', 'sku'],
+                        data_frame_measurement_name="stallion_data")
+        print()
+        print("Wait to finishing ingesting DataFrame...")
+        print()
+
+print()
+print(f'Import finished in: {datetime.now() - startTime}')
+print()
+
+results = []
 
 with InfluxDBClient(url="https://us-east-1-1.aws.cloud2.influxdata.com", token=token, org=org) as client:
-    query = """option v = {timeRangeStart: -1h, timeRangeStop: now()}
-                        from(bucket: "my-bucket-1")
+    query = """option v = {timeRangeStart: -10h, timeRangeStop: now()}
+                        from(bucket: "myBucket")
                         |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
-                        |> group(columns: ["beverage_sales"])
-                        |> filter(fn: (r) => r["_field"] == "actual_price")"""
+                        |> group(columns: ["stallion_data"])"""
     tables = client.query_api().query(query, org=org)
     for table in tables:
         for record in table.records:
             results.append((record.get_field(), 
                                 record.get_value(), 
                                 record.get_measurement(), 
-                                record.get_time())) # Other columns from the data can be fetched using list_name.values.get("column-name")
-                        
+                                record.get_time())) # use record.values.get("column-name") to get all columns
+
 # convert the list to a dataframe                        
-stallion_df = pd.DataFrame(results, columns=['_field', '_value', '_measurement', other-columns])
+stallion_df = pd.DataFrame(results, columns=['_field', '_value', '_measurement', column-names])
 
 # Add time index
 stallion_df["time_idx"] = stallion_df["date"].dt.year * 12 + stallion_df["date"].dt.month
