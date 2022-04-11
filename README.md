@@ -5,7 +5,7 @@
 [InfluxDB](https://www.influxdata.com/) is a database that specializes in the collection, storage, and processing of time series data.
 In this Python project, you will see:
 1. How to establish [connection](https://github.com/influxdata/influxdb-client-python/blob/master/examples/influx_cloud.py) between InfluxDB and InfluxDB client,
-2. How to push data to InfluxDB using [a dataframe](https://github.com/influxdata/influxdb-client-python/blob/master/examples/ingest_large_dataframe.py) and writing every row as a data point,
+2. How to push data to InfluxDB using [a dataframe](https://github.com/influxdata/influxdb-client-python/blob/master/examples/ingest_large_dataframe.py),
 3. How to [fetch dataframe from InfluxDB](https://github.com/SmritiSatyan/PyTorch_Forecasting_with_InfluxDB/blob/main/ingest_and_query.py) to Python client, and
 4. How to use this data to perform [forecasting](https://github.com/jdb78/pytorch-forecasting/blob/master/docs/source/tutorials/stallion.ipynb) using PyTorch.
 
