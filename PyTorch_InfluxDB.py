@@ -311,7 +311,7 @@ lr_logger = LearningRateMonitor()  # log the learning rate
 logger = TensorBoardLogger("lightning_logs")  # logging results to a tensorboard
 
 trainer = pl.Trainer(
-    max_epochs=5,
+    max_epochs=20,
     gpus=0,
     weights_summary="top",
     gradient_clip_val=0.1,
