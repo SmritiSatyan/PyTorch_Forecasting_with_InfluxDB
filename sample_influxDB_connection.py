@@ -6,7 +6,7 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 token = "YOUR_TOKEN_HERE"
 org = "YOUR_EMAIL_HERE"
 bucket = "YOUR_BUCKET_HERE"
-# URL depends on the region selected during sign up, an example is <url= "https://europe-west1-1.gcp.cloud2.influxdata.com">
+# The url depends on the region selected during sign up, an example is <url= "https://europe-west1-1.gcp.cloud2.influxdata.com">
 url = "YOUR_URL_HERE"
 client = InfluxDBClient(url=url, token=token, org=org, debug=True)
 """
