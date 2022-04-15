@@ -109,6 +109,8 @@ with InfluxDBClient(
 influx_df = pd.DataFrame(
     results, columns=["_field", "_value", "_measurement", "time", "agency", "sku"]
 )
+
+# data preprocessing
 temp_data = influx_df[["_field", "_value"]]
 
 # remove irrelevant columns
