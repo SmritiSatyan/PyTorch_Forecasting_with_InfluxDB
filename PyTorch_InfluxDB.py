@@ -1,173 +1,41 @@
 # Import required libraries
-import logging
 import warnings
-from datetime import datetime
 
 import numpy as np
 import pandas as pd
-from influxdb_client import InfluxDBClient
-from pytorch_forecasting.data.examples import get_stallion_data
 
 warnings.filterwarnings("ignore")  # avoid printing absolute paths
-
 import pytorch_lightning as pl
+import tensorboard as tb
+import tensorflow as tf
 import torch
 from pytorch_forecasting import Baseline, TemporalFusionTransformer, TimeSeriesDataSet
 from pytorch_forecasting.data import GroupNormalizer
+from pytorch_forecasting.data.examples import get_stallion_data
 from pytorch_forecasting.metrics import QuantileLoss
 from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
 from pytorch_lightning.loggers import TensorBoardLogger
 
-stallion_df = get_stallion_data()
+tf.io.gfile = tb.compat.tensorflow_stub.io.gfile
 
-token = "YOUR_TOKEN_HERE"
-org = "YOUR_EMAIL_HERE"
-
-# An example would be <url = "https://us-east-1-1.aws.cloud2.influxdata.com">
-url = "YOUR_URL_HERE"
-bucket = "YOUR_BUCKET_HERE"
-# pushing contents of dataframe to InfluxDB cloud
 stallion_data = get_stallion_data()
-
-filter_val = [
-    "2017-01-01T00:00:00.000000000",
-    "2017-01-01T00:00:00.000000000",
-    "2017-01-01T00:00:00.000000000",
-    "2017-01-01T00:00:00.000000000",
-    "2017-01-01T00:00:00.000000000",
-    "2017-01-01T00:00:00.000000000",
-    "2017-01-01T00:00:00.000000000",
-    "2017-01-01T00:00:00.000000000",
-    "2017-01-01T00:00:00.000000000",
-    "2017-01-01T00:00:00.000000000",
-    "2017-01-01T00:00:00.000000000",
-    "2017-01-01T00:00:00.000000000",
-]
-
-filtered_df = stallion_data[stallion_data["date"].isin(filter_val)]
-
-# The below steps are performed since free tier can only store data upto 30 days
-filtered_df["date"] = pd.to_datetime(filtered_df.date) + pd.offsets.DateOffset(years=5)
-filtered_df["date"] = pd.to_datetime(filtered_df.date) + pd.offsets.DateOffset(months=3)
-filtered_df["date"] = pd.to_datetime(filtered_df.date) + pd.offsets.DateOffset(days=3)
-
-# Convert the 'time' column to an index
-stallion_data = stallion_data.set_index("time")
-
-"""
-Enable logging for DataFrame serializer
-"""
-loggerSerializer = logging.getLogger(
-    "influxdb_client.client.write.dataframe_serializer"
-)
-loggerSerializer.setLevel(level=logging.DEBUG)
-handler = logging.StreamHandler()
-handler.setFormatter(logging.Formatter("%(asctime)s | %(message)s"))
-loggerSerializer.addHandler(handler)
-
-"""
-Ingest DataFrame
-"""
-print()
-print("=== Ingesting DataFrame via batching API ===")
-print()
-startTime = datetime.now()
-
-
-with InfluxDBClient(url=url, token=token, org=org) as client:
-
-    """
-    Use batching API
-    """
-    with client.write_api() as write_api:
-        write_api.write(
-            bucket="myBucket",
-            record=stallion_data,
-            data_frame_tag_columns=["agency", "sku"],
-            data_frame_measurement_name="stallion_data",
-        )
-        print()
-        print("Wait to finishing ingesting DataFrame...")
-        print()
-
-print()
-print(f"Import finished in: {datetime.now() - startTime}")
-print()
-
-results = []
-with InfluxDBClient(
-    url="https://us-east-1-1.aws.cloud2.influxdata.com", token=token, org=org
-) as client:
-    query = """option v = {timeRangeStart: -30d, timeRangeStop: now()}
-
-    from(bucket: "myBucket")
-    |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
-    |> filter(fn: (r) => r["_measurement"] == "stallion_data")"""
-    tables = client.query_api().query(query, org=org)
-    for table in tables:
-        for record in table.records:
-            # results.append(record)
-            results.append(
-                [
-                    record.get_field(),
-                    record.get_value(),
-                    record.get_measurement(),
-                    record.get_time(),
-                    record.values.get("agency"),
-                    record.values.get("sku"),
-                ]
-            )
-
-# convert the list to a dataframe
-influx_df = pd.DataFrame(
-    results, columns=["_field", "_value", "_measurement", "time", "agency", "sku"]
-)
-temp_data = influx_df[["_field", "_value"]]
-
-# remove irrelevant columns
-influx_df = influx_df.drop(["_measurement", "_field", "_value"], axis=1)
-
-# The columns are converted to rows when the data is pushed to InfluxDB cloud
-regrouped_df = temp_data.pivot_table(
-    values="_value", index=temp_data.index, columns="_field", aggfunc="first"
-)
-regrouped_df = regrouped_df.fillna(0)
-stallion_df = pd.concat([influx_df, regrouped_df], axis=1)
-stallion_df = stallion_df[:8040]
-stallion_df = stallion_df.rename({"time": "date"}, axis=1)  # new method
-
-# generate new 'time' values for forecasting purposes only
-m = 134
-out = (
-    pd.MultiIndex.from_product(
-        [
-            [f"date-{i}" for i in range(1, m + 1)],
-            pd.date_range("2018-01-01", "2022-12-01", freq="MS")
-            + pd.DateOffset(days=2),
-        ]
-    )
-    .to_frame(name=["val", "date"])
-    .reset_index(drop=True)
-)
-
-stallion_df["date"] = out["date"].values
-
+# stallion_data = stallion_df
 
 # add time index
-stallion_df["time_idx"] = (
-    stallion_df["date"].dt.year * 12 + stallion_df["date"].dt.month
+stallion_data["time_idx"] = (
+    stallion_data["date"].dt.year * 12 + stallion_data["date"].dt.month
 )
-stallion_df["time_idx"] -= stallion_df["time_idx"].min()
+stallion_data["time_idx"] -= stallion_data["time_idx"].min()
 
 # add additional features
-stallion_df["month"] = stallion_df.date.dt.month.astype(str).astype(
+stallion_data["month"] = stallion_data.date.dt.month.astype(str).astype(
     "category"
 )  # categories have be strings
-stallion_df["log_volume"] = np.log(stallion_df.volume + 1e-8)
-stallion_df["avg_volume_by_sku"] = stallion_df.groupby(
+stallion_data["log_volume"] = np.log(stallion_data.volume + 1e-8)
+stallion_data["avg_volume_by_sku"] = stallion_data.groupby(
     ["time_idx", "sku"], observed=True
 ).volume.transform("mean")
-stallion_df["avg_volume_by_agency"] = stallion_df.groupby(
+stallion_data["avg_volume_by_agency"] = stallion_data.groupby(
     ["time_idx", "agency"], observed=True
 ).volume.transform("mean")
 
@@ -186,24 +54,24 @@ special_days = [
     "beer_capital",
     "music_fest",
 ]
-stallion_df[special_days] = (
-    stallion_df[special_days]
+stallion_data[special_days] = (
+    stallion_data[special_days]
     .apply(lambda x: x.map({0: "-", 1: x.name}))
     .astype("category")
 )
-stallion_df.sample(10, random_state=521)
+stallion_data.sample(10, random_state=521)
 
 # stallion_df.describe()
 
 max_prediction_length = 6  # 6 months of record is chosen as validation data
 max_encoder_length = 24
-training_cutoff = stallion_df["time_idx"].max() - max_prediction_length
+training_cutoff = stallion_data["time_idx"].max() - max_prediction_length
 
 # Convert the dataframe to a PyTorch forecasting TimeSeriesDataSet format
 # Define the GroupNormalizer to normalize a given entry by groups.
 # For every group, a scaler is fit and applied. It can be used as target normalizer as well as to normalize other variable.
 training = TimeSeriesDataSet(
-    stallion_df[lambda x: x.time_idx <= training_cutoff],
+    stallion_data[lambda x: x.time_idx <= training_cutoff],
     time_idx="time_idx",
     target="volume",
     group_ids=["agency", "sku"],
@@ -241,7 +109,7 @@ training = TimeSeriesDataSet(
 
 # Create validation set to predict the last max_prediction_length points in time for every series
 validation = TimeSeriesDataSet.from_dataset(
-    training, stallion_df, predict=True, stop_randomization=True
+    training, stallion_data, predict=True, stop_randomization=True
 )
 
 # Create dataloaders for the model
@@ -311,7 +179,7 @@ lr_logger = LearningRateMonitor()  # log the learning rate
 logger = TensorBoardLogger("lightning_logs")  # logging results to a tensorboard
 
 trainer = pl.Trainer(
-    max_epochs=20,
+    max_epochs=5,
     gpus=0,
     weights_summary="top",
     gradient_clip_val=0.1,
@@ -363,11 +231,13 @@ for idx in range(4):  # plot 4 examples
 # Select last 24 months from stallion_df (max_encoder_length has been initialized to 24)
 # The presence of covariates requires defining known covariates beforehand
 # Predict on new data
-encoder_data = stallion_df[lambda x: x.time_idx > x.time_idx.max() - max_encoder_length]
+encoder_data = stallion_data[
+    lambda x: x.time_idx > x.time_idx.max() - max_encoder_length
+]
 
 # Select last known stallion_df point and create decoder stallion_df from it. This can be done by repeating it and
 # incrementing the month
-last_data = stallion_df[lambda x: x.time_idx == x.time_idx.max()]
+last_data = stallion_data[lambda x: x.time_idx == x.time_idx.max()]
 decoder_data = pd.concat(
     [
         last_data.assign(date=lambda x: x.date + pd.offsets.MonthBegin(i))
