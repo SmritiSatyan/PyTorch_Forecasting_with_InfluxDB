@@ -1,6 +1,4 @@
-import influxdb_client
-from influxdb_client import InfluxDBClient, Point, WritePrecision
-from influxdb_client.client.write_api import SYNCHRONOUS
+from influxdb_client import InfluxDBClient
 
 # Fill in the below attributes after creating an account on InfluxDB Cloud
 token = "YOUR_TOKEN_HERE"
