@@ -18,7 +18,6 @@ query = """option v = {timeRangeStart: -30d, timeRangeStop: now()}
 tables = client.query_api().query(query, org=org)
 for table in tables:
     for record in table.records:
-        # results.append(record)
         results.append(
                [   record.get_field(),
                    record.get_value(),
