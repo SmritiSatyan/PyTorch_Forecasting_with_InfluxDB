@@ -10,3 +10,21 @@ client = InfluxDBClient(url=url, token=token, org=org, debug=True)
 """
 Flux query execution/other source code
 """
+results=[]   
+query = """option v = {timeRangeStart: -30d, timeRangeStop: now()}
+                        from(bucket: "myBucket")
+                        |> range(start: v.timeRangeStart, stop: v.timeRangeStop)
+                        |> filter(fn: (r) => r["_measurement"] == "stallion_data")"""
+tables = client.query_api().query(query, org=org)
+for table in tables:
+    for record in table.records:
+        # results.append(record)
+        results.append(
+               [   record.get_field(),
+                   record.get_value(),
+                   record.get_measurement(),
+                   record.get_time(),
+                   record.values.get("agency"),
+                   record.values.get("sku"),
+               ]
+           ) 
