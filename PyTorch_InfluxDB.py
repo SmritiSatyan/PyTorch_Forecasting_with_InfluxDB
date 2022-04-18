@@ -18,6 +18,10 @@ from pytorch_forecasting.metrics import QuantileLoss
 from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
 from pytorch_lightning.loggers import TensorBoardLogger
 
+import tensorflow as tf
+import tensorboard as tb
+tf.io.gfile = tb.compat.tensorflow_stub.io.gfile
+
 stallion_df = get_stallion_data()
 
 token = "YOUR_TOKEN_HERE"
